@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+
+  <title>chat-app test</title>
+
+  <script src="../../node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
+  <script src="../../node_modules/@polymer/test-fixture/test-fixture.js"></script>
+  <script src="../../node_modules/mocha/mocha.js"></script>
+  <script src="../../node_modules/chai/chai.js"></script>
+  <script src="../../node_modules/sinon/pkg/sinon.js"></script>
+  <script src="../../node_modules/wct-mocha/wct-mocha.js"></script>
+
+  <script type="module" src="../../src/chat-app/app-table.js"></script>
+
+</head>
+
+<body>
+
+  <test-fixture id="BasicTestFixture">
+    <template>
+      <app-table></app-table>
+    </template>
+  </test-fixture>
+
+  <test-fixture id="AjaxFixture">
+    <template>
+      <iron-ajax id="ajax" handle-as="json" url="http://localhost:3000/posts">
+      </iron-ajax>
+    </template>
+  </test-fixture>
+
+
+  <script>
+    describe('chat-app', function () {
+      var element, elementShadowRoot;
+      beforeEach(() => {
+        element = fixture('BasicTestFixture');
+        elementShadowRoot = element.shadowRoot;
+      })
+      // props testing
+      it('instantiating the element with default properties works', function () {
+        expect(element.firstName).to.be.equal("Radha");
+      });
+
+      //defult array value testing
+      it("should have empty list props", function () {
+        expect(element.list.length).to.be.equal(0);
+      });
+
+      // html content testing
+      it("should have button rendered", function () {
+        var button = elementShadowRoot.querySelectorAll('button');
+        expect(button[1].innerHTML).to.be.equal('Load');
+      });
+
+      // by default list item should not be rendered
+      it("should NOT render list item", function () {
+        var listItem = elementShadowRoot.querySelectorAll(".list-item");
+        expect(listItem.length).to.be.equal(0);
+      })
+      // Trigger a click event and check the change in prop
+      describe("When name change button is clicked", function () {
+        var buttonSpy;
+        beforeEach(() => {
+          buttonSpy = sinon.spy(); // create a spyOn event to check vder your function have been called or not
+          var button = elementShadowRoot.querySelector('#btnName');
+          button.addEventListener('click', buttonSpy) // bind the event to spy
+          button.click(); // trigger click event
+        });
+
+        it("should call 'buttonSpy'", function () {
+          expect(buttonSpy.callCount).to.be.equal(1);  //check vder that function have been called
+        });
+
+        it("should change the name", function () {
+          expect(element.firstName).to.be.equal("HCL"); //check the change based on function call
+        });
+      });
+
+
+      //when load button is clicked without mocking or stubbing
+      describe("When load button is clicked", function () {
+        var loadBtnSpy;
+        beforeEach(() => {
+          loadBtnSpy = sinon.spy();
+          var loadBtn = elementShadowRoot.querySelector("#load");
+          loadBtn.addEventListener('click', loadBtnSpy);
+          loadBtn.click(); // it is calling actuall service, since it is get method, assume that no issue, think when we call post/delete/put method, how are we going to hanlde this senario
+        });
+
+        it("should have called the '_handleAjax()'", function () {
+          expect(loadBtnSpy.callCount).to.be.equal(1);
+        });
+      });
+
+      // We shouldn't call actual api call, we have to create fake server and mock response to check api calls
+      describe('<iron-ajax>', function () {
+        var ajax;
+        var request;
+        var server;
+        var responseHeaders = {
+          json: { 'Content-Type': 'application/json' }
+        };
+        beforeEach(function () {
+          server = sinon.fakeServer.create(); // creating fake server
+          server.respondWith(
+            'GET',
+            'http://localhost:3000/posts', [
+            200,
+            responseHeaders.json,
+            '{"data":[{"id": 1, "title": "abc"}]}' // mocking response
+          ]
+          );
+        });
+        afterEach(function () {
+          server.restore();
+        });
+        describe('when making simple GET requests for JSON', function () {
+          beforeEach(function () {
+            // get fresh instance of iron-ajax before every test
+            ajax = fixture('AjaxFixture');
+          });
+          it('should return response', function () {
+            request = ajax.generateRequest();
+            server.respond();
+            expect(request.response).to.be.ok;
+            expect(request.response.data).to.be.an('array'); // data will be type of array
+            expect(request.response.data.length).to.be.equal(1); // check the lenght of array
+          });
+          it('should return correct xhr method', function () {
+            request = ajax.generateRequest();
+            expect(request.xhr.method).to.be.equal('GET');
+          });
+        });
+      });
+
+      describe("when ever '_handleResponse()' is called", function () {
+        var data;
+        beforeEach(() => {
+          data = [{ "id": 1, "title": "abc" }];
+          element.handleResponse({ detail: { response: data } });
+        });
+        it("should have updated the length of list", function () {
+          expect(element.list.length).to.be.equal(data.length);
+        });
+        it("should have redner correct number of item list", function (done) {
+          flush(() => {
+            var listItem = elementShadowRoot.querySelectorAll("tr");
+            expect(listItem.length).to.be.equal(data.length);
+            done();
+          })
+
+        });
+      })
+
+
+    });
+  </script>
+
+
+</body>
+
+</html>
