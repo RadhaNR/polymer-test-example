@@ -68,7 +68,7 @@ class AppTable extends PolymerElement {
     }
     _handleChange() {
         console.log("_handleChange")
-        this.firstName = "HCL";
+        this.firstName = "Test";
     }
     handleResponse(event) {
         console.log("in handleResponse")
